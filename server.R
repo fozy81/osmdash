@@ -1,33 +1,86 @@
 options(shiny.maxRequestSize=30*1024^2)
-require(shiny)
-shinyServer(function(input, output) {
+
+
+#save(ua3, file="dunbar.RData")
+
+library(shiny)
+library(plyr)
+#library(RJSONIO)
+#library(ggplot2)
+
+shinyServer(function(input, output,session) {
   
   datasetInput <- reactive({
-    inFile <- input$file1
+    inFile <- input$data
     
     if (is.null(inFile))
       return(NULL)
     
-    testdata <-read.csv(inFile$datapath)
-    source("darleqFunc.R")
-    dataTDI <- darleqFunc(testdata)
-    dataTDI <- dataTDI[,order(names(dataTDI), decreasing = TRUE)]
-    dataTDI$'SAMPLE ID' <- as.character(floor(as.numeric(dataTDI$'SAMPLE ID'))) # round sampleID
-    row.names(dataTDI) <- NULL  # remove row names not required for display
-    lake <- input$lake
-    if (input$lake == TRUE & input$river == FALSE) # return different bits of table depending on river or lake
-      return(dataTDI[,grepl("LAKE*|SAMPLE*", names(dataTDI))])
-    if (input$river == TRUE & input$lake == FALSE)
-      return(dataTDI[,grepl("RIVER*|SAMPLE*", names(dataTDI))])
-    
-    dataTDI
+    library(osmar)
+    ua3 <- get_osm(complete_file(), source = osmsource_file(inFile$datapath))
+  #  ua3 <- get_osm(complete_file(), source = osmsource_file("map(4).osm"))
+   detach("package:osmar", unload=TRUE)
+  ua3 <- ua3$nodes$tags
+  ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
+  
   })
+  
+       
+  getFilters <- reactive({
+    inFile <- input$data
+    codes2 <- 'NULL'
+      if(!is.null(inFile$datapath)){
+      library(osmar)
+      ua5 <- get_osm(complete_file(), source = osmsource_file(inFile$datapath))
+     detach("package:osmar", unload=TRUE)
+      codes <- unique(ua5$nodes$tags)
+      codes <- as.character(codes$k)
+      codes2 <- c(codes2,codes)
+    }
+    return(codes2)
+  })
+  
+  observe({
+    updateSelectInput(session,"osm1",label = "Filter1", choices = getFilters())
+    
+  })
+  
+  plotData <- reactive({ 
+    inFile <- input$data
+    
+    if (is.null(inFile))
+      return(NULL)
+    
+   # library(osmar)
+  #  ua3 <- get_osm(complete_file(), source = osmsource_file(inFile$datapath))
+ #   detach("package:osmar", unload=TRUE)
+ ua3 <- datasetInput()
+  #  ua3 <- ua3$nodes$tags
+  #  ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
+   ua3 <- eval(parse(text=paste("ua3[ua3$k == \"", input$osm1, "\", ]",sep=""))) 
+  })
+
   
   output$table <- renderTable({
-    datasetInput()
+    inFile <- input$data
+        if (is.null(inFile))
+      return(NULL)
+    ua3 <- datasetInput()
+ ua3$stuff <- 0
+ ua3
   })
+
+output$table2 <- renderTable({
+  plotData()
   
+})
   
+ # output$filter <- renderTable({
+#    ua3 <-  datasetInput()
+ #   ua3 <- unique(ua3$nodes$tags$k)
+#  })
+  
+
   output$downloadTest <- downloadHandler(
     filename = function() { paste(input$file1, '.csv', sep='') },
     content = function(file) {
