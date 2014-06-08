@@ -1,12 +1,8 @@
 options(shiny.maxRequestSize=30*1024^2)
 
-
-#save(ua3, file="dunbar.RData")
-
 library(shiny)
 library(plyr)
-#library(RJSONIO)
-#library(ggplot2)
+
 
 shinyServer(function(input, output,session) {
   
@@ -20,12 +16,9 @@ shinyServer(function(input, output,session) {
     ua3 <- get_osm(complete_file(), source = osmsource_file(inFile$datapath))
   #  ua3 <- get_osm(complete_file(), source = osmsource_file("map(4).osm"))
    detach("package:osmar", unload=TRUE)
-  ua3 <- ua3$nodes$tags
-  ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
-  
+  ua3
   })
   
-       
   getFilters <- reactive({
     inFile <- input$data
     codes2 <- 'NULL'
@@ -42,21 +35,16 @@ shinyServer(function(input, output,session) {
   
   observe({
     updateSelectInput(session,"osm1",label = "Filter1", choices = getFilters())
-    
-  })
+      })
   
   plotData <- reactive({ 
     inFile <- input$data
     
     if (is.null(inFile))
       return(NULL)
-    
-   # library(osmar)
-  #  ua3 <- get_osm(complete_file(), source = osmsource_file(inFile$datapath))
- #   detach("package:osmar", unload=TRUE)
- ua3 <- datasetInput()
-  #  ua3 <- ua3$nodes$tags
-  #  ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
+  ua3 <- datasetInput()
+   ua3 <- ua3$nodes$tags
+   ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
    ua3 <- eval(parse(text=paste("ua3[ua3$k == \"", input$osm1, "\", ]",sep=""))) 
   })
 
@@ -66,8 +54,9 @@ shinyServer(function(input, output,session) {
         if (is.null(inFile))
       return(NULL)
     ua3 <- datasetInput()
- ua3$stuff <- 0
- ua3
+    ua3 <- ua3$nodes$tags
+    ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
+
   })
 
 output$table2 <- renderTable({

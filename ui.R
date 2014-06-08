@@ -19,7 +19,7 @@ shinyUI(pageWithSidebar(
     helpText(a("Report issues or view the code for this site on Github", href="https://github.com/fozy81/darleq/issues", target="_blank"))
   ),
   mainPanel(
-  #  tableOutput("table"),
+    tableOutput("table"),
     tableOutput("table2")
   )
 ))
