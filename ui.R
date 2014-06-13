@@ -23,6 +23,6 @@ shinyUI(pageWithSidebar(
   mainPanel(
   #  tableOutput("table"),
     tableOutput("table2"),
-    tableOutput("table3")
+    tableOutput("table4")
   )
 ))
