@@ -6,6 +6,7 @@ library(sp)
 library(rgeos)
 library(rgdal) 
 library(ggplot2)
+library(reshape2)
 
 shinyServer(function(input, output,session) {
   # 1st input file:
@@ -57,24 +58,42 @@ shinyServer(function(input, output,session) {
   
   plotData <- reactive({ 
     inFile <- input$data
-    
+    ifEmpty <- data.frame("Load", "Data")
+    colnames(  ifEmpty ) <- c("k","count")
     if (is.null(inFile))
-      return(NULL)
+      return(ifEmpty)
+    allsites <- data.frame("Load Data")
+    colnames(allsites) <- c("")
   ua3 <- datasetInput()
    ua3 <- ua3$nodes$tags
    ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
-   ua3 <- eval(parse(text=paste("ua3[ua3$k == \"", input$osm1, "\", ]",sep=""))) 
+  ua3 <- lapply(input$osm1, function(x){
+    ua3 <- eval(parse(text=paste("ua3[ua3$k == \"", x, "\", ]",sep=""))) 
+   return(ua3) 
+  })
+
+ ua3 <- as.data.frame(do.call(rbind,ua3))
+
   })
   
   plotData2 <- reactive({ 
     inFile <- input$dataTwo
-    
+       ifEmpty <- data.frame(list("Load", "Data"))
+    colnames(  ifEmpty ) <- c("k","count")
+    ifEmpty$k <- as.character(ifEmpty$k)
+    ifEmpty$count <- as.character(ifEmpty$count)
     if (is.null(inFile))
-      return(NULL)
+      return(ifEmpty)
     ua3 <- datasetInputTwo()
     ua3 <- ua3$nodes$tags
     ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
-    ua3 <- eval(parse(text=paste("ua3[ua3$k == \"", input$osm1, "\", ]",sep=""))) 
+    ua3 <- lapply(input$osm1, function(x){
+      ua3 <- eval(parse(text=paste("ua3[ua3$k == \"", x, "\", ]",sep=""))) 
+      return(ua3) 
+  })
+  
+  ua3 <- as.data.frame(do.call(rbind,ua3))
+  
   })
   
   plotData3 <- reactive({
@@ -190,20 +209,25 @@ shinyServer(function(input, output,session) {
   })
 
 
-output$table2 <- renderTable({
-  plotData()
-  
+output$table2 <- renderDataTable({
+  dataset <- plotData()
+  dataset$k <- as.character(dataset$k)
+  dataset$count <- as.character(dataset$count)
+  return(dataset)
 })
 
-output$table3 <- renderTable({
-  plotData2()
-  
+output$table3 <-renderDataTable({
+  dataset <- plotData2()
+  dataset$k <- as.character(dataset$k)
+ dataset$count <- as.character(dataset$count)
+  return(dataset)
 })
 
-output$table4 <- renderTable({
-  plotData3 ()
+
+output$table4 <- renderTable(
+  plotData3()
   
-})
+)
   
 # for csv output? not tested yet:
   output$downloadTest <- downloadHandler(
