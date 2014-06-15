@@ -10,7 +10,7 @@ library(reshape2)
 
 shinyServer(function(input, output,session) {
   # 1st input file:
-  datasetInput <- reactive({  
+datasetInput <- reactive({  
     inFile <- input$data
     
     if (is.null(inFile))
@@ -21,10 +21,15 @@ shinyServer(function(input, output,session) {
   #  ua3 <- get_osm(complete_file(), source = osmsource_file("map(4).osm"))
  
    detach("package:osmar", unload=TRUE)
+  codes <- ua3$nodes$tags
+  codes$k <- as.character(codes$k)
+  codes$v <- as.character(codes$v)
+  codes$key <-paste(codes[,2],codes[,3],sep="=")
+  ua3$c <- codes
   ua3
   })
   # 2nd input file:
-  datasetInputTwo <- reactive({ 
+datasetInputTwo <- reactive({ 
     inFile <- input$dataTwo
     
     if (is.null(inFile))
@@ -33,13 +38,18 @@ shinyServer(function(input, output,session) {
     library(osmar)
     ua3 <- get_osm(complete_file(), source = osmsource_file(inFile$datapath))
        detach("package:osmar", unload=TRUE)
-    ua3
+    codes <- ua3$nodes$tags
+    codes$k <- as.character(codes$k)
+    codes$v <- as.character(codes$v)
+    codes$key <-paste(codes[,2],codes[,3],sep="=")
+    ua3$c <- codes
+    ua3    
   })
   
   textInput <- reactive({
     inFile <- input$data
     if (is.null(inFile))
-      return(NULL)
+      return('Awaiting file')
     text <- inFile$name   
     text
   }) 
@@ -47,7 +57,7 @@ shinyServer(function(input, output,session) {
   textInput2 <- reactive({
     inFile <- input$dataTwo
       if (is.null(inFile))
-      return(NULL)
+      return('Awaiting file')
       text <- inFile$name  
     text
   }) 
@@ -55,36 +65,32 @@ shinyServer(function(input, output,session) {
   # drop down filter list:
   getFilters <- reactive({
     inFile <- input$data
-    codes2 <- 'NULL'
-      if(!is.null(inFile$datapath)){
-       ua5 <-  datasetInput()
-      ua4 <- datasetInputTwo()
-       codes <- unique(ua5$nodes$tags)
-     codesTwo <- unique(ua4$nodes$tags)
-      codes <- as.character(codes$k)
-     codesTwo <- as.character(codesTwo$k)
-      codes2 <- unique(c(codes2,codes,codesTwo))
-    }
+    inFile2 <- input$dataTwo
+    codes2 <- 'Choose:'
+          if(!is.null(inFile)){
+       ua5 <-  datasetInput()    
+          ua4 <- datasetInputTwo()
+       codes2 <- unique(c(ua5$c$key,ua4$c$key,codes2))
+     codes2 <- sort(codes2)
+          }
     return(codes2)
   })
   # update drop down list as inpupt files change:
   observe({
-    updateSelectInput(session,"osm1",label = "Filter1", choices = getFilters())
+    updateSelectInput(session,"osm1",label = "Key=Value", choices = getFilters())
       })
   
   plotData <- reactive({ 
     inFile <- input$data
-    ifEmpty <- data.frame("Load", "Data")
-    colnames(  ifEmpty ) <- c("k","count")
+  #  ifEmpty <- data.frame("Load", "Data")
+   # colnames(  ifEmpty ) <- c("key","count")
     if (is.null(inFile))
-      return(ifEmpty)
-    allsites <- data.frame("Load Data")
-    colnames(allsites) <- c("")
-  ua3 <- datasetInput()
-   ua3 <- ua3$nodes$tags
-   ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
+      return(NULL)
+   ua3 <- datasetInput()
+  ua3 <- ua3$c
+     ua3 <- ddply(ua3,"key",summarise,count=length(na.omit(v))) 
   ua3 <- lapply(input$osm1, function(x){
-    ua3 <- eval(parse(text=paste("ua3[ua3$k == \"", x, "\", ]",sep=""))) 
+    ua3 <- eval(parse(text=paste("ua3[ua3$key == \"", x, "\", ]",sep=""))) 
    return(ua3) 
   })
 
@@ -94,17 +100,15 @@ shinyServer(function(input, output,session) {
   
 plotData2 <- reactive({ 
     inFile <- input$dataTwo
-       ifEmpty <- data.frame(list("Load", "Data"))
-    colnames(  ifEmpty ) <- c("k","count")
-    ifEmpty$k <- as.character(ifEmpty$k)
-    ifEmpty$count <- as.character(ifEmpty$count)
+  #     ifEmpty <- data.frame(list("Load", "Data"))
+  #  colnames(  ifEmpty ) <- c("key","count")
     if (is.null(inFile))
-      return(ifEmpty)
+      return(NULL)
     ua3 <- datasetInputTwo()
-    ua3 <- ua3$nodes$tags
-    ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
+    ua3 <- ua3$c
+    ua3 <- ddply(ua3,"key",summarise,count=length(na.omit(v))) 
     ua3 <- lapply(input$osm1, function(x){
-      ua3 <- eval(parse(text=paste("ua3[ua3$k == \"", x, "\", ]",sep=""))) 
+      ua3 <- eval(parse(text=paste("ua3[ua3$key == \"", x, "\", ]",sep=""))) 
       return(ua3) 
   })
   
@@ -147,32 +151,43 @@ output$text4 <- renderText({
   text <- textInput2() 
 })
 
-output$table <- renderTable({
-    inFile <- input$data
-        if (is.null(inFile))
-      return(NULL)
-    ua3 <- datasetInput()
-    ua3 <- ua3$nodes$tags
-    ua3 <- ddply(ua3,"k",summarise,count=length(na.omit(v))) 
+output$plotArea1 <- renderPlot({
+  inFile <- input$data
+  if (is.null(inFile))
+    return(NULL)
+    data3 <-   plotData3()
+    data3<- as.data.frame(cbind( data3[1], data3[3])) 
+    print(qplot(as.character(unlist(Landuse)), weight = as.numeric(data3$'Area in football fields'), ylab = colnames(data3[2]), xlab = colnames(data3[1]),data = data3, geom = "bar",fill=as.character(unlist(Landuse))))
+   })
 
-  })
+output$plotArea2 <- renderPlot({
+  inFile <- input$dataTwo
+  if (is.null(inFile))
+    return(NULL)
+  data3<- plotData4()
+  data3<- as.data.frame(cbind( data3[1], data3[3])) 
 
+ print(qplot(as.character(unlist(Landuse)), weight = as.numeric(data3$'Area in football fields'), ylab = colnames(data3[2]), xlab = colnames(data3[1]),data = data3, geom = "bar",fill=as.character(unlist(Landuse))))
 
+})
+            
 output$table2 <- renderDataTable({
   dataset <- plotData()
-  dataset$k <- as.character(dataset$k)
-  dataset$count <- as.character(dataset$count)
+  dataset$key <- as.character(dataset$key)
+  #dataset$c <- NULL
+  dataset$count <- as.numeric(dataset$count)
   return(dataset)
  }, 
- options = list(aLengthMenu = c(10, 30, 50), iDisplayLength = 10))
+ options = list(aLengthMenu = F, iDisplayLength = 10,bFilter = FALSE,bMenu=F))
 
 output$table3 <-renderDataTable({
   dataset <- plotData2()
-  dataset$k <- as.character(dataset$k)
- dataset$count <- as.character(dataset$count)
+  dataset$key <- as.character(dataset$key)
+ # dataset$c <- NULL
+ dataset$count <- as.numeric(dataset$count)
   return(dataset)
  }, 
- options = list(aLengthMenu = c(10, 30, 50), iDisplayLength = 10))
+ options = list(aLengthMenu = F, iDisplayLength = 10,bFilter = FALSE,bMenu=F))
 
 
 output$table4 <- renderTable(
